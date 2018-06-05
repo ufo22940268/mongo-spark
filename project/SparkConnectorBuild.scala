@@ -28,9 +28,9 @@ object SparkConnectorBuild extends Build {
   import Resolvers._
 
   val buildSettings = Seq(
-    organization := "org.mongodb.spark",
+    organization := "me.biubiubiu.mongospark",
     organizationHomepage := Some(url("http://www.mongodb.org")),
-    version := "2.2.2",
+    version := "2.9.2",
     scalaVersion :=
       scalaCoreVersion,
     crossScalaVersions := scalaVersions,

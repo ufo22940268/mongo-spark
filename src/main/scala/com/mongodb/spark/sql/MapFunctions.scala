@@ -80,7 +80,9 @@ private[spark] object MapFunctions {
         if (element.isNull) {
           null
         } else {
-          throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
+          //throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
+          println(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
+          null
         }
     }
   }
