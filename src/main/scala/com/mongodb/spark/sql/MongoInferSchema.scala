@@ -111,7 +111,8 @@ object MongoInferSchema extends Logging {
 
   private def getSchemaFromDocument(document: BsonDocument): StructType = {
     val fields = new util.ArrayList[StructField]()
-    document.entrySet.asScala.foreach(kv => fields.add(DataTypes.createStructField(kv.getKey, getDataType(kv.getValue), true)))
+    document.entrySet.asScala.filter(kv => kv.getKey != "chargeIds")
+      .foreach(kv => fields.add(DataTypes.createStructField(kv.getKey, getDataType(kv.getValue), true)))
     DataTypes.createStructType(fields)
   }
 
