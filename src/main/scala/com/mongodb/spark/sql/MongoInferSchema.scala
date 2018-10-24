@@ -61,7 +61,12 @@ object MongoInferSchema extends Logging {
   def apply(mongoRDD: MongoRDD[BsonDocument]): StructType = {
     val singlePartitionRDD = mongoRDD.copy(readConfig = mongoRDD.readConfig.copy(partitioner = MongoSinglePartitioner))
     val sampleData: MongoRDD[BsonDocument] = singlePartitionRDD.hasSampleAggregateOperator match {
-      case true => singlePartitionRDD.appendPipeline(Seq(Aggregates.sample(mongoRDD.readConfig.sampleSize)))
+      case true => singlePartitionRDD.appendPipeline(Seq(
+        Aggregates.sort(Sorts.descending("_id")),
+        Aggregates.sort(Sorts.descending("admin")),
+        Aggregates.limit(mongoRDD.readConfig.sampleSize),
+        Aggregates.sample(mongoRDD.readConfig.sampleSize)
+      ))
       case false =>
         val samplePool: Int = 10000
         val sampleSize: Int = if (singlePartitionRDD.readConfig.sampleSize > samplePool) samplePool else singlePartitionRDD.readConfig.sampleSize
@@ -75,6 +80,8 @@ object MongoInferSchema extends Logging {
         }
     }
     // perform schema inference on each row and merge afterwards
+    //    print(s"readConfig: ${mongoRDD.readConfig}\n")
+    //    print(s"readConfig sortBy: ${mongoRDD.readConfig.sortBy}\n")
     val rootType: DataType = sampleData.map(getSchemaFromDocument).treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
     canonicalizeType(rootType) match {
       case Some(st: StructType) => st

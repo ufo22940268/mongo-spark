@@ -47,6 +47,9 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultRegisterSQLHelperFunctions = false
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
+    val sortBy = options.getOrElse("sortBy", "")
+    print(s"options: $options \n")
+    print(s"sortby: $sortBy \n")
     val cleanedOptions = stripPrefix(options)
     val cachedConnectionString = connectionString(cleanedOptions)
     val defaultDatabase = default.map(conf => conf.databaseName).orElse(Option(cachedConnectionString.getDatabase))
@@ -68,7 +71,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
       registerSQLHelperFunctions = getBoolean(
         cleanedOptions.get(registerSQLHelperFunctions),
         default.map(conf => conf.registerSQLHelperFunctions), DefaultRegisterSQLHelperFunctions
-      )
+      ),
+      sortBy = sortBy
     )
   }
 
@@ -216,7 +220,8 @@ case class ReadConfig(
     localThreshold:             Int                            = MongoSharedConfig.DefaultLocalThreshold,
     readPreferenceConfig:       ReadPreferenceConfig           = ReadPreferenceConfig(),
     readConcernConfig:          ReadConcernConfig              = ReadConcernConfig(),
-    registerSQLHelperFunctions: Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions
+    registerSQLHelperFunctions: Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions,
+    sortBy:                     String                         = ""
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
