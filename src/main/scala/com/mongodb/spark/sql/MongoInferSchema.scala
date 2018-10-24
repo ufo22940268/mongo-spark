@@ -64,8 +64,7 @@ object MongoInferSchema extends Logging {
       case true => singlePartitionRDD.appendPipeline(Seq(
         Aggregates.sort(Sorts.descending("_id")),
         Aggregates.sort(Sorts.descending("admin")),
-        Aggregates.limit(mongoRDD.readConfig.sampleSize),
-        Aggregates.sample(mongoRDD.readConfig.sampleSize)
+        Aggregates.limit(mongoRDD.readConfig.sampleSize)
       ))
       case false =>
         val samplePool: Int = 10000
