@@ -16,36 +16,33 @@
 
 package com.mongodb.spark.rdd
 
-import scala.collection.JavaConverters._
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
-import scala.util.Try
-
-import org.apache.spark.{Partition, SparkContext, TaskContext}
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-
-import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
-
-import com.mongodb.{MongoClient, MongoCursorNotFoundException}
 import com.mongodb.client.MongoCursor
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoSinglePartitioner}
 import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
+import com.mongodb.{MongoClient, MongoCursorNotFoundException}
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.{Partition, SparkContext, TaskContext}
+import org.bson.conversions.Bson
+import org.bson.{BsonDocument, Document}
 
 import scala.collection.Iterator
+import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+import scala.util.Try
 
 /**
  * MongoRDD Class
  *
- * @param connector the [[com.mongodb.spark.MongoConnector]]
+ * @param connector  the [[com.mongodb.spark.MongoConnector]]
  * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
- * @param pipeline aggregate pipeline
+ * @param pipeline   aggregate pipeline
  * @tparam D the type of the collection documents
  */
 class MongoRDD[D: ClassTag](
@@ -56,6 +53,7 @@ class MongoRDD[D: ClassTag](
 ) extends RDD[D](sparkSession.sparkContext, Nil) {
 
   @transient val sc: SparkContext = sparkSession.sparkContext
+
   private def mongoSpark = {
     checkSparkContext()
     MongoSpark(sparkSession, connector.value, readConfig, pipeline)
@@ -69,7 +67,7 @@ class MongoRDD[D: ClassTag](
    * Creates a `DataFrame` based on the schema derived from the optional type.
    *
    * '''Note:''' Prefer [[toDS[T<:Product]()*]] as computations will be more efficient.
-   *  The rdd must contain an `_id` for MongoDB versions < 3.2.
+   * The rdd must contain an `_id` for MongoDB versions < 3.2.
    *
    * @tparam T The optional type of the data from MongoDB, if not provided the schema will be inferred from the collection
    * @return a DataFrame
@@ -132,7 +130,8 @@ class MongoRDD[D: ClassTag](
       sparkSession = sparkSession,
       connector = connector,
       readConfig = readConfig,
-      pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments
+      pipeline = pipeline.map(x => x
+        .toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments
     )
   }
 

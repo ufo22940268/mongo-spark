@@ -20,21 +20,20 @@ package com.mongodb.spark.sql
 import java.util
 import java.util.Comparator
 
-import scala.collection.JavaConverters._
-import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success, Try}
-
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.analysis.TypeCoercion
-import org.apache.spark.sql.catalyst.{JavaTypeInference, ScalaReflection}
-import org.apache.spark.sql.types._
-
-import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
-import com.mongodb.spark.{Logging, MongoSpark}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
+import com.mongodb.spark.{Logging, MongoSpark}
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.catalyst.analysis.TypeCoercion
+import org.apache.spark.sql.types._
+import org.bson._
+
+import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success, Try}
 
 object MongoInferSchema extends Logging {
 
@@ -44,7 +43,7 @@ object MongoInferSchema extends Logging {
    *
    * Utilizes the `\$sample` aggregation operator in server versions 3.2+. Older versions take a sample of the most recent 10k documents.
    *
-   * @param sc                 the spark context
+   * @param sc the spark context
    * @return the schema for the collection
    */
   def apply(sc: SparkContext): StructType = apply(MongoSpark.load[BsonDocument](sc))
@@ -55,7 +54,7 @@ object MongoInferSchema extends Logging {
    *
    * Utilizes the `\$sample` aggregation operator in server versions 3.2+. Older versions take a sample of the most recent 10k documents.
    *
-   * @param mongoRDD           the MongoRDD to be sampled
+   * @param mongoRDD the MongoRDD to be sampled
    * @return the schema for the collection
    */
   def apply(mongoRDD: MongoRDD[BsonDocument]): StructType = {
@@ -63,14 +62,14 @@ object MongoInferSchema extends Logging {
     val sampleData: MongoRDD[BsonDocument] = singlePartitionRDD.hasSampleAggregateOperator match {
       case true => singlePartitionRDD.appendPipeline(Seq(
         Aggregates.sort(Sorts.descending("_id")),
-        Aggregates.sort(Sorts.descending("admin")),
         Aggregates.limit(mongoRDD.readConfig.sampleSize)
       ))
       case false =>
         val samplePool: Int = 10000
         val sampleSize: Int = if (singlePartitionRDD.readConfig.sampleSize > samplePool) samplePool else singlePartitionRDD.readConfig.sampleSize
         val sampleData: Seq[BsonDocument] = singlePartitionRDD.appendPipeline(Seq(
-          Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates.limit(samplePool)
+          Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates
+            .limit(samplePool)
         )).takeSample(withReplacement = false, num = sampleSize).toSeq
         Try(sampleData.map(_.get("_id")).asJava) match {
           case Success(_ids) => singlePartitionRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
@@ -78,10 +77,20 @@ object MongoInferSchema extends Logging {
             throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
         }
     }
-    // perform schema inference on each row and merge afterwards
-    //    print(s"readConfig: ${mongoRDD.readConfig}\n")
-    //    print(s"readConfig sortBy: ${mongoRDD.readConfig.sortBy}\n")
-    val rootType: DataType = sampleData.map(getSchemaFromDocument).treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
+
+    val randomSampleData = singlePartitionRDD.appendPipeline(Seq(Aggregates.sample(mongoRDD.readConfig.sampleSize)))
+    var unionSampleData = sampleData ++ randomSampleData
+
+    if (mongoRDD.readConfig.sortBy != "" && mongoRDD.readConfig.sortBy != null) {
+      val customSortSampleData = singlePartitionRDD.appendPipeline(Seq(
+        Aggregates.sort(Sorts.descending(mongoRDD.readConfig.sortBy)),
+        Aggregates.limit(mongoRDD.readConfig.sampleSize)
+      ))
+      unionSampleData = unionSampleData ++ customSortSampleData
+    }
+
+    val rootType: DataType = unionSampleData.map(getSchemaFromDocument)
+      .treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
     canonicalizeType(rootType) match {
       case Some(st: StructType) => st
       case _                    => StructType(Seq()) // canonicalizeType erases all empty structs, including the only one we want to keep
@@ -183,6 +192,7 @@ object MongoInferSchema extends Logging {
       }
     }
   }
+
   // scalastyle:on cyclomatic.complexity method.length
 
   val compatibleDecimalTypes = Seq(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
@@ -225,6 +235,7 @@ object MongoInferSchema extends Logging {
     }
     true
   }
+
   // scalastyle:on return
 
   // scalastyle:off cyclomatic.complexity null
@@ -266,6 +277,7 @@ object MongoInferSchema extends Logging {
       case _ => getCompatibleArraySchema(bsonArray)
     }
   }
+
   // scalastyle:on cyclomatic.complexity null
 
   private def fieldContainsConflictType(dataType: DataType): Boolean = {

@@ -47,9 +47,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultRegisterSQLHelperFunctions = false
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
-    val sortBy = options.getOrElse("sortBy", "")
-    print(s"options: $options \n")
-    print(s"sortby: $sortBy \n")
+    var defaultSortBy: String = default.map(conf => conf.sortBy).getOrElse("")
+    var sortBy: String = options.getOrElse("sortBy", defaultSortBy)
     val cleanedOptions = stripPrefix(options)
     val cachedConnectionString = connectionString(cleanedOptions)
     val defaultDatabase = default.map(conf => conf.databaseName).orElse(Option(cachedConnectionString.getDatabase))
